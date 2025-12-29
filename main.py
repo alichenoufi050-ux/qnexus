@@ -47,7 +47,7 @@ def root():
     return {
         "name": "Q-NEXUS OMEGA",
         "status": "running"
-   }
+    }
 @app.post("/api/register", response_model=RegisterResponse)
 def register(payload: RegisterPayload):
     api_key = create_user(
