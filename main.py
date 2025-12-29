@@ -47,7 +47,19 @@ def root():
     return {
         "name": "Q-NEXUS OMEGA",
         "status": "running"
-    }
+   }
+@app.post("/api/register", response_model=RegisterResponse)
+def register(payload: RegisterPayload):
+    api_key = create_user(
+        email=payload.email,
+        plan=payload.plan
+    )
+
+    return {
+        "api_key": api_key,
+        "plan": payload.plan,
+        "message": "User registered successfully"
+}    
 
 @app.post("/api/decide", response_model=DecisionResponse)
 def decide(payload: MarketPayload, authorization: str = Header(None)):
