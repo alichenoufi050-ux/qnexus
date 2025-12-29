@@ -57,9 +57,8 @@ def register(payload: RegisterPayload):
     return {
         "api_key": api_key,
         "plan": payload.plan,
-        "message": "User registered successfully"
-}    
-
+        "message": "User registered successfully"  
+        
 @app.post("/api/decide", response_model=DecisionResponse)
 def decide(payload: MarketPayload, authorization: str = Header(None)):
     authorize(authorization)
