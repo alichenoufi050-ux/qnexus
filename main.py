@@ -1,4 +1,6 @@
 from fastapi import FastAPI, Header, HTTPException
+from pydantic import BaseModel
+import time
 from core.engine import DecisionEngine
 from models.schemas import MarketPayload, DecisionResponse, DashboardResponse
 from db.memory import get_user_by_key, increment_usage, usage_exceeded
@@ -10,7 +12,9 @@ app = FastAPI(
 )
 
 ENGINE = DecisionEngine()
-
+class LearnPayload(BaseModel):
+    strategy: str
+    realized_return: float
 def authorize(api_key: str):
     if not api_key:
         raise HTTPException(401, "Missing API Key")
@@ -37,7 +41,21 @@ def root():
 def decide(payload: MarketPayload, authorization: str = Header(None)):
     authorize(authorization)
     return ENGINE.decide(payload.prices, payload.volumes)
+@app.post("/api/learn")
+def learn(payload: LearnPayload, authorization: str = Header(None)):
+    authorize(authorization)
 
+    ENGINE.learn(
+        executed_strategy=payload.strategy,
+        realized_return=payload.realized_return
+    )
+
+    return {
+        "status": "learning_update_applied",
+        "strategy": payload.strategy,
+        "return": payload.realized_return,
+        "timestamp": int(time.time())
+    }
 @app.get("/api/dashboard", response_model=DashboardResponse)
 def dashboard(authorization: str = Header(None)):
     user = authorize(authorization)
