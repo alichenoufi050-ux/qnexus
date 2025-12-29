@@ -22,3 +22,13 @@ class DashboardResponse(BaseModel):
     usage: int
     plan: str
     capabilities: dict
+from pydantic import BaseModel, EmailStr
+
+class RegisterPayload(BaseModel):
+    email: EmailStr
+    plan: str = "starter"
+
+class RegisterResponse(BaseModel):
+    api_key: str
+    plan: str
+    message: str
