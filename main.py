@@ -17,6 +17,9 @@ from db.memory import (
     create_user
 )
 
+# =========================
+# APP
+# =========================
 app = FastAPI(
     title="Q-NEXUS OMEGA",
     version="1.0",
@@ -24,46 +27,65 @@ app = FastAPI(
 )
 
 ENGINE = DecisionEngine()
-class LearnPayload(BaseModel):
-    strategy: str
-    realized_return: float
+
+# =========================
+# AUTH
+# =========================
 def authorize(api_key: str):
     if not api_key:
-        raise HTTPException(401, "Missing API Key")
+        raise HTTPException(status_code=401, detail="Missing API Key")
 
     user = get_user_by_key(api_key)
     if not user:
-        raise HTTPException(401, "Invalid API Key")
+        raise HTTPException(status_code=401, detail="Invalid API Key")
 
     increment_usage(api_key)
 
     if usage_exceeded(api_key):
-        raise HTTPException(429, "Usage limit reached")
+        raise HTTPException(status_code=429, detail="Usage limit reached")
 
     return user
 
+# =========================
+# ROOT
+# =========================
 @app.get("/")
 def root():
     return {
         "name": "Q-NEXUS OMEGA",
-        "status": "running" }
- @app.post("/api/register", response_model=RegisterResponse)
+        "status": "running"
+    }
+
+# =========================
+# REGISTER  ✅ (سيظهر في /docs)
+# =========================
+@app.post("/api/register", response_model=RegisterResponse)
 def register(payload: RegisterPayload):
     api_key = create_user(
         email=payload.email,
         plan=payload.plan
     )
-
     return {
         "api_key": api_key,
         "plan": payload.plan,
         "message": "User registered successfully"
     }
-        
+
+# =========================
+# DECIDE
+# =========================
 @app.post("/api/decide", response_model=DecisionResponse)
 def decide(payload: MarketPayload, authorization: str = Header(None)):
     authorize(authorization)
     return ENGINE.decide(payload.prices, payload.volumes)
+
+# =========================
+# LEARN
+# =========================
+class LearnPayload(BaseModel):
+    strategy: str
+    realized_return: float
+
 @app.post("/api/learn")
 def learn(payload: LearnPayload, authorization: str = Header(None)):
     authorize(authorization)
@@ -79,6 +101,10 @@ def learn(payload: LearnPayload, authorization: str = Header(None)):
         "return": payload.realized_return,
         "timestamp": int(time.time())
     }
+
+# =========================
+# DASHBOARD
+# =========================
 @app.get("/api/dashboard", response_model=DashboardResponse)
 def dashboard(authorization: str = Header(None)):
     user = authorize(authorization)
@@ -88,10 +114,13 @@ def dashboard(authorization: str = Header(None)):
         "plan": user["plan"],
         "capabilities": {
             "markets": ["crypto", "gold", "energy", "stocks"],
-            "ai_mode": user["plan"],
+            "ai_mode": user["plan"]
         }
     }
 
+# =========================
+# HEALTH
+# =========================
 @app.get("/health")
 def health():
     return {"status": "ok"}
