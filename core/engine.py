@@ -225,4 +225,4 @@ if __name__ == "__main__":
     print(out)
 
     # Simulated feedback (paper trading)
-    engine.learn("trend", realized_return=0.004)
+    
