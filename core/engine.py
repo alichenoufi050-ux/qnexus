@@ -11,7 +11,8 @@ from typing import Dict, List, Tuple
 import numpy as np
 import time
 import math
-
+from core.evaluator import LearningGate
+import copy
 EPS = 1e-9
 
 # =========================
@@ -148,7 +149,8 @@ class DecisionEngine:
             Defensive(),
         ]
         self.weighter = BanditWeighter(self.strategies)
-
+self.gate = LearningGate()
+        self.history = []
     def decide(self, prices: List[float], volumes: List[float]) -> Dict:
         s = MarketStateEngine.compute(prices, volumes)
 
@@ -178,13 +180,36 @@ class DecisionEngine:
             "explain": contrib,
             "timestamp": int(time.time()),
         }
+def learn(
+    self,
+    prices,
+    old_decisions,
+    new_decisions,
+    executed_strategy: str,
+    realized_return: float
+):
+    # 1) اختبار صارم قبل التعلم
+    approved = self.gate.approve(
+        prices=prices,
+        old_decisions=old_decisions,
+        new_decisions=new_decisions
+    )
 
-    def learn(self, executed_strategy: str, realized_return: float):
-        """
-        Call this after outcome is known (paper/live):
-        realized_return: signed return (e.g., +0.01, -0.005)
-        """
-        self.weighter.update(executed_strategy, realized_return)
+    if not approved:
+        self.history.append({"status": "rejected"})
+        return {"status": "rejected"}
+
+    # 2) التعلم مسموح فقط إذا نجح الاختبار
+    self.weighter.update(executed_strategy, realized_return)
+
+    self.history.append({
+        "status": "approved",
+        "strategy": executed_strategy,
+        "return": realized_return
+    })
+
+    return {"status": "approved"}
+    
 
 # =========================
 # USAGE EXAMPLE (paper)
