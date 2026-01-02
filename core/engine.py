@@ -193,25 +193,30 @@ class DecisionEngine:
         executed_strategy: str,
         realized_return: float
     ):
-        approved = self.gate.approve(
-            prices=prices,
-            old_decisions=old_decisions,
-            new_decisions=new_decisions
-        )
+        verdict = self.gate.approve(
+    prices=prices,
+    old_decisions=old_decisions,
+    new_decisions=new_decisions
+)
 
-        if not approved:
-            self.history.append({"status": "rejected"})
-            return {"status": "rejected"}
+if not verdict["approved"]:
+    self.history.append({
+        "status": "rejected",
+        "reason": verdict.get("reason"),
+        "details": verdict
+    })
+    return {"status": "rejected", "verdict": verdict}
 
         self.weighter.update(executed_strategy, realized_return)
 
-        self.history.append({
-            "status": "approved",
-            "strategy": executed_strategy,
-            "return": realized_return
-        })
+self.history.append({
+    "status": "approved",
+    "strategy": executed_strategy,
+    "return": realized_return,
+    "metrics": verdict.get("metrics")
+})
 
-        return {"status": "approved"}
+return {"status": "approved", "verdict": verdict}
 
 # =========================
 # USAGE EXAMPLE (paper)
