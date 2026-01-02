@@ -1,8 +1,8 @@
 # core/paper_trader.py
 from typing import List
 from core.engine import DecisionEngine
+from core.attribution import StrategyAttributor
 from db.history import log_trade
-import numpy as np
 
 class PaperTrader:
     """
@@ -13,29 +13,33 @@ class PaperTrader:
         self.engine = engine
         self.symbol = symbol
         self.market = market
-        self.last_price = None
-        self.position = None  # None | "LONG"
+
+        self.position = None        # None | "LONG"
+        self.entry_price = None
 
         self.decisions_buffer: List[str] = []
 
     def step(self, prices, volumes):
+        # 1️⃣ قرار الذكاء
         decision_payload = self.engine.decide(prices, volumes)
         decision = decision_payload["decision"]
         confidence = decision_payload["confidence"]
+        explain = decision_payload["explain"]
 
         current_price = prices[-1]
         pnl = 0.0
 
-        # --- Execution logic (paper) ---
+        # 2️⃣ تنفيذ وهمي (Paper Execution)
         if decision == "BUY" and self.position is None:
             self.position = "LONG"
-            self.last_price = current_price
+            self.entry_price = current_price
 
         elif decision == "SELL" and self.position == "LONG":
-            pnl = current_price - self.last_price
+            pnl = current_price - self.entry_price
             self.position = None
+            self.entry_price = None
 
-        # --- Log trade ---
+        # 3️⃣ تسجيل الصفقة (حتى HOLD)
         log_trade(
             market=self.market,
             symbol=self.symbol,
@@ -48,16 +52,34 @@ class PaperTrader:
             meta=decision_payload
         )
 
-        # --- Learning buffer ---
+        # 4️⃣ حفظ القرارات للاختبار
         self.decisions_buffer.append(decision)
 
-        # --- Feedback loop (only when trade closes) ---
+        # 5️⃣ التعلم فقط عند إغلاق صفقة حقيقية
         if pnl != 0.0 and len(self.decisions_buffer) > 10:
-            self.engine.learn(
-                prices=prices[-len(self.decisions_buffer):],
-                old_decisions=self.decisions_buffer[:-1],
-                new_decisions=self.decisions_buffer,
-                executed_strategy="trend",  # dominant strategy
+
+            # 📊 توزيع الربح على الاستراتيجيات
+            attribution = StrategyAttributor.attribute(
+                explain=explain,
                 realized_return=pnl
             )
+
+            # 🔁 تحديث الأوزان (Bandit Learning)
+            for strategy, strat_pnl in attribution.items():
+                self.engine.weighter.update(strategy, strat_pnl)
+
+            # 🛑 اختبار Gate الصارم (Backtest)
+            verdict = self.engine.gate.approve(
+                prices=prices[-len(self.decisions_buffer):],
+                old_decisions=self.decisions_buffer[:-1],
+                new_decisions=self.decisions_buffer
+            )
+
+            # 🧾 تسجيل النتيجة
+            self.engine.history.append({
+                "status": "approved" if verdict["approved"] else "rejected",
+                "pnl": pnl,
+                "details": verdict
+            })
+
             self.decisions_buffer.clear()
