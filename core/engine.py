@@ -149,8 +149,11 @@ class DecisionEngine:
             Defensive(),
         ]
         self.weighter = BanditWeighter(self.strategies)
-self.gate = LearningGate()
+
+        # ✅ هنا بالضبط
+        self.gate = LearningGate()
         self.history = []
+
     def decide(self, prices: List[float], volumes: List[float]) -> Dict:
         s = MarketStateEngine.compute(prices, volumes)
 
@@ -180,36 +183,35 @@ self.gate = LearningGate()
             "explain": contrib,
             "timestamp": int(time.time()),
         }
-def learn(
-    self,
-    prices,
-    old_decisions,
-    new_decisions,
-    executed_strategy: str,
-    realized_return: float
-):
-    # 1) اختبار صارم قبل التعلم
-    approved = self.gate.approve(
-        prices=prices,
-        old_decisions=old_decisions,
-        new_decisions=new_decisions
-    )
 
-    if not approved:
-        self.history.append({"status": "rejected"})
-        return {"status": "rejected"}
+    # ✅ هذه داخل الكلاس
+    def learn(
+        self,
+        prices,
+        old_decisions,
+        new_decisions,
+        executed_strategy: str,
+        realized_return: float
+    ):
+        approved = self.gate.approve(
+            prices=prices,
+            old_decisions=old_decisions,
+            new_decisions=new_decisions
+        )
 
-    # 2) التعلم مسموح فقط إذا نجح الاختبار
-    self.weighter.update(executed_strategy, realized_return)
+        if not approved:
+            self.history.append({"status": "rejected"})
+            return {"status": "rejected"}
 
-    self.history.append({
-        "status": "approved",
-        "strategy": executed_strategy,
-        "return": realized_return
-    })
+        self.weighter.update(executed_strategy, realized_return)
 
-    return {"status": "approved"}
-    
+        self.history.append({
+            "status": "approved",
+            "strategy": executed_strategy,
+            "return": realized_return
+        })
+
+        return {"status": "approved"}
 
 # =========================
 # USAGE EXAMPLE (paper)
