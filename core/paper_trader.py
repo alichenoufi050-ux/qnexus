@@ -56,17 +56,17 @@ class PaperTrader:
         self.decisions_buffer.append(decision)
 
         # 5️⃣ التعلم فقط عند إغلاق صفقة
-if pnl != 0.0 and len(self.decisions_buffer) > 10:
+        if pnl != 0.0 and len(self.decisions_buffer) > 10:
 
-    # 🛑 أولًا: Gate (القاضي)
-    verdict = self.engine.gate.approve(
+        # 🛑 أولًا: Gate (القاضي)
+         verdict = self.engine.gate.approve(
         prices=prices[-len(self.decisions_buffer):],
-        old_decisions=self.decisions_buffer[:-1],
-        new_decisions=self.decisions_buffer
-    )
+         old_decisions=self.decisions_buffer[:-1],
+         new_decisions=self.decisions_buffer
+       )
 
-    # ✅ فقط إذا وافق القاضي
-    if verdict["approved"]:
+       # ✅ فقط إذا وافق القاضي
+       if verdict["approved"]:
         attribution = StrategyAttributor.attribute(
             explain=explain,
             realized_return=pnl
@@ -76,13 +76,13 @@ if pnl != 0.0 and len(self.decisions_buffer) > 10:
         for strategy, strat_pnl in attribution.items():
             self.engine.weighter.update(strategy, strat_pnl)
 
-    # 🧾 تسجيل النتيجة بوضوح
-    self.engine.history.append({
+        # 🧾 تسجيل النتيجة بوضوح
+        self.engine.history.append({
         "status": "approved" if verdict["approved"] else "rejected",
         "pnl": pnl,
         "reason": verdict.get("reason"),
         "improvement": verdict.get("improvement"),
         "details": verdict
-    })
+        })
 
-    self.decisions_buffer.clear()
+        self.decisions_buffer.clear()
