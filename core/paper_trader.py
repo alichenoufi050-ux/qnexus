@@ -2,6 +2,7 @@
 from typing import List
 from core.engine import DecisionEngine
 from core.attribution import StrategyAttributor
+from core.risk_control import KillSwitch
 from db.history import log_trade
 
 class PaperTrader:
@@ -18,7 +19,7 @@ class PaperTrader:
         self.entry_price = None
 
         self.decisions_buffer: List[str] = []
-
+        self.kill_switch = KillSwitch()
     def step(self, prices, volumes):
         # 1️⃣ قرار الذكاء
         decision_payload = self.engine.decide(prices, volumes)
@@ -38,7 +39,18 @@ class PaperTrader:
             pnl = current_price - self.entry_price
             self.position = None
             self.entry_price = None
+       # تحديث Kill-Switch
+       self.kill_switch.update(
+            pnl=pnl,
+             volatility=decision_payload["risk"] == "HIGH"
+       )
 
+       if not self.kill_switch.can_trade():
+           self.engine.history.append({
+               "status": "KILLED",
+               "reason": "Risk limits breached"
+           })
+           return
         # 3️⃣ تسجيل الصفقة (حتى HOLD)
         log_trade(
             market=self.market,
