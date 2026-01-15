@@ -26,7 +26,10 @@ class PaperTrader:
         decision = decision_payload["decision"]
         confidence = decision_payload["confidence"]
         explain = decision_payload["explain"]
+        regime = decision_payload["regime"]
 
+       if regime == "DEAD":
+          return  # لا تداول
         current_price = prices[-1]
         pnl = 0.0
 
