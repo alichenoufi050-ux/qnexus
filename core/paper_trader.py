@@ -5,6 +5,7 @@ from core.attribution import StrategyAttributor
 from core.risk_control import KillSwitch
 from db.history import log_trade
 
+
 class PaperTrader:
     """
     Executes paper trades and feeds results back to the engine
@@ -20,16 +21,20 @@ class PaperTrader:
 
         self.decisions_buffer: List[str] = []
         self.kill_switch = KillSwitch()
+
     def step(self, prices, volumes):
         # 1️⃣ قرار الذكاء
         decision_payload = self.engine.decide(prices, volumes)
+
         decision = decision_payload["decision"]
         confidence = decision_payload["confidence"]
         explain = decision_payload["explain"]
         regime = decision_payload["regime"]
 
-       if regime == "DEAD":
-          return  # لا تداول
+        # 🚫 فلتر Regime
+        if regime == "DEAD":
+            return  # لا تداول
+
         current_price = prices[-1]
         pnl = 0.0
 
@@ -42,19 +47,21 @@ class PaperTrader:
             pnl = current_price - self.entry_price
             self.position = None
             self.entry_price = None
-       # تحديث Kill-Switch
-       self.kill_switch.update(
-            pnl=pnl,
-             volatility=decision_payload["risk"] == "HIGH"
-       )
 
-       if not self.kill_switch.can_trade():
-           self.engine.history.append({
-               "status": "KILLED",
-               "reason": "Risk limits breached"
-           })
-           return
-        # 3️⃣ تسجيل الصفقة (حتى HOLD)
+        # 3️⃣ تحديث Kill-Switch
+        self.kill_switch.update(
+            pnl=pnl,
+            volatility=decision_payload["risk"] == "HIGH"
+        )
+
+        if not self.kill_switch.can_trade():
+            self.engine.history.append({
+                "status": "KILLED",
+                "reason": "Risk limits breached"
+            })
+            return
+
+        # 4️⃣ تسجيل الصفقة (حتى HOLD)
         log_trade(
             market=self.market,
             symbol=self.symbol,
@@ -67,31 +74,27 @@ class PaperTrader:
             meta=decision_payload
         )
 
-        # 4️⃣ حفظ القرارات للاختبار
+        # 5️⃣ حفظ القرارات للاختبار
         self.decisions_buffer.append(decision)
 
-        # 5️⃣ التعلم فقط عند إغلاق صفقة
+        # 6️⃣ التعلم فقط عند إغلاق صفقة
         if pnl != 0.0 and len(self.decisions_buffer) > 10:
 
-            # 🛑 أولًا: Gate (القاضي)
             verdict = self.engine.gate.approve(
                 prices=prices[-len(self.decisions_buffer):],
                 old_decisions=self.decisions_buffer[:-1],
                 new_decisions=self.decisions_buffer
             )
 
-            # ✅ فقط إذا وافق القاضي
             if verdict["approved"]:
                 attribution = StrategyAttributor.attribute(
                     explain=explain,
                     realized_return=pnl
                 )
 
-                # 🔁 تحديث الأوزان
                 for strategy, strat_pnl in attribution.items():
                     self.engine.weighter.update(strategy, strat_pnl)
 
-            # 🧾 تسجيل النتيجة بوضوح
             self.engine.history.append({
                 "status": "approved" if verdict["approved"] else "rejected",
                 "pnl": pnl,
