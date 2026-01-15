@@ -182,11 +182,13 @@ class DecisionEngine:
             decision = "HOLD"
 
         return {
-            "decision": decision,
-            "confidence": round(confidence, 3),
-            "risk": risk,
-            "explain": contrib,
-            "timestamp": int(time.time()),
+    "decision": decision,
+    "confidence": round(confidence, 3),
+    "risk": risk,
+    "regime": regime.name,
+    "regime_confidence": regime.confidence,
+    "explain": contrib,
+    "timestamp": int(time.time()),
         }
 
     # ✅ هذه داخل الكلاس
