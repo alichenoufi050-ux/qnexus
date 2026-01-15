@@ -13,6 +13,7 @@ import time
 import math
 from core.evaluator import LearningGate
 import copy
+from core.regime import RegimeDetector
 EPS = 1e-9
 
 # =========================
@@ -156,7 +157,11 @@ class DecisionEngine:
 
     def decide(self, prices: List[float], volumes: List[float]) -> Dict:
         s = MarketStateEngine.compute(prices, volumes)
-
+        regime = RegimeDetector.detect(
+            momentum=s.momentum,
+            volatility=s.volatility,
+            entropy=s.entropy
+                 )
         weights = self.weighter.normalized_weights()
         agg = 0.0
         contrib = {}
